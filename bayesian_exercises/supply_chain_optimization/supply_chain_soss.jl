@@ -5,22 +5,14 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ 393d15fc-f2a2-11ea-2741-d5ec0d980f8b
-using Soss
-
-# ╔═╡ cdb60e00-f2a2-11ea-3b40-d55a803a3459
-using Plots
-
-# ╔═╡ 98c12628-f2af-11ea-21e5-7534955ca121
-using Pkg
-
-# ╔═╡ dfa6fb48-f2b0-11ea-39e9-453914d0b6d0
-using Optim
+begin 
+	using Soss
+	using Plots
+	using Optim
+end
 
 # ╔═╡ e1831534-f380-11ea-17c2-27bba65b030f
-md"# Supply Chain Optimization problem"
-
-# ╔═╡ d6720b1c-f2b0-11ea-3ee0-597fa20af4ba
-Pkg.add("Optim")
+md"## Supply Chain Optimization problem using Soss.jl"
 
 # ╔═╡ 4673ac54-f2a2-11ea-2e2a-6dab49e6c60c
 begin
@@ -64,12 +56,6 @@ begin
 	push!(data,rand(Beta(α[i],β[i]),n_obs[i]))
 	end
 end
-
-# ╔═╡ 16b922ac-f43c-11ea-3f2b-1f35d4e1dbe3
-md"We have bought 30, 20 and 2 times repectively from each supplier"
-
-# ╔═╡ 8c3a4da8-f3a2-11ea-1d96-2df327497d71
-n_obs
 
 # ╔═╡ 835038d0-f3a2-11ea-17d8-6d41ddbbf3c2
 data
@@ -134,7 +120,7 @@ end
 demand_samples = rand(Poisson(100),1000);
 
 # ╔═╡ d0b53166-f384-11ea-3903-719d5ff4fb77
-md"This is de data we have about past demands"
+md"This is the data we have for past demands"
 
 # ╔═╡ ca8bfbc4-f2d2-11ea-0de1-5df4918768cf
 begin
@@ -246,8 +232,6 @@ function calc_yield_and_price(orders, supplier_yield_, prices=prices)
     
     return (full_yield, price_per_item)
 end 
-
-
 
 # ╔═╡ f1071d8e-f39e-11ea-2b2e-2fcbe3980817
 md"Here we sample from our posterior distribution." 
@@ -365,7 +349,7 @@ demand_samples
 new_data_rs = [[new_data[1][i],new_data[1][i], new_data[1][i]] for i in 1:10000]
 
 # ╔═╡ d6229dd6-f392-11ea-2c49-2b375fff1d98
-new_demand = rand(Poisson(100),1000);
+new_demand = rand(Poisson(100),10000);
 
 # ╔═╡ ccbd0a08-f2cf-11ea-2218-8bf1eae2a93b
 function objective_func(orders, supplier_yield=supplier_yield_post_predict,
@@ -382,10 +366,10 @@ function objective_func(orders, supplier_yield=supplier_yield_post_predict,
 	end
     
     # Iterate over post pred samples provided in supplier_yield
-    for i in 1:length(supplier_yield_post_predict)
+    for i in 1:length(supplier_yield)
         full_yield, price_per_item = calc_yield_and_price(
             orders,
-            supplier_yield_post_predict[i]
+            supplier_yield[i]
         )
         println(i)
         # evaluate loss over each sample with one sample from the demand distribution
@@ -398,8 +382,8 @@ end
 
 # ╔═╡ d1041836-f2cf-11ea-0b1c-551b547693bd
 begin
-histogram(-objective_func(optim, new_data_rs) ./ new_demand, normed=true, label="Bayesian model")
-histogram!(-objective_func(optim_2, new_data_rs) ./ new_demand, normed=true, label="Frequentist")
+histogram(-objective_func(optim, new_data_rs,new_demand) ./ new_demand, normed=true, label="Bayesian model")
+histogram!(-objective_func(optim_2, new_data_rs,new_demand) ./ new_demand, normed=true, label="Frequentist")
 xlabel!("Profit")
 title!("Histogram of profit with ''future'' data")
 end
@@ -408,13 +392,13 @@ end
 md"Median profit, bayesian model:"
 
 # ╔═╡ 84989bca-f2d4-11ea-16cd-ebd4bb0f8098
-median(-objective_func(optim, new_data_rs) ./ new_demand)
+median(-objective_func(optim, new_data_rs, new_demand) ./ new_demand)
 
 # ╔═╡ e9d6cf76-f39b-11ea-3902-8f0643ed99ca
 md"Median profit, frequentist model:"
 
 # ╔═╡ 8c24dcfa-f2d4-11ea-1885-d38117360220
-median(-objective_func(optim_2, new_data_rs) ./ new_demand)
+median(-objective_func(optim_2, new_data_rs, new_demand) ./ new_demand)
 
 # ╔═╡ 403607b0-f39c-11ea-0ca8-2f2e54557bcd
 md"Engines bought with bayesian model"
@@ -437,10 +421,6 @@ optim_2
 # ╔═╡ Cell order:
 # ╟─e1831534-f380-11ea-17c2-27bba65b030f
 # ╠═393d15fc-f2a2-11ea-2741-d5ec0d980f8b
-# ╠═cdb60e00-f2a2-11ea-3b40-d55a803a3459
-# ╠═98c12628-f2af-11ea-21e5-7534955ca121
-# ╠═d6720b1c-f2b0-11ea-3ee0-597fa20af4ba
-# ╠═dfa6fb48-f2b0-11ea-39e9-453914d0b6d0
 # ╟─4673ac54-f2a2-11ea-2e2a-6dab49e6c60c
 # ╟─8a93e464-f381-11ea-13ec-ed405a6d90f2
 # ╟─1e39b9f0-f382-11ea-3341-93d7f592a259
@@ -450,8 +430,6 @@ optim_2
 # ╠═a56e952c-f2a2-11ea-29fc-03edb66ff20a
 # ╠═ac5a59f0-f2a2-11ea-39a0-9f7955066c0a
 # ╠═b468f926-f2a2-11ea-015c-afcadd9c7641
-# ╟─16b922ac-f43c-11ea-3f2b-1f35d4e1dbe3
-# ╠═8c3a4da8-f3a2-11ea-1d96-2df327497d71
 # ╠═835038d0-f3a2-11ea-17d8-6d41ddbbf3c2
 # ╠═c938223c-f2a2-11ea-217a-39ede7cf7485
 # ╠═efb7c558-f43b-11ea-0acb-21c38311d03b

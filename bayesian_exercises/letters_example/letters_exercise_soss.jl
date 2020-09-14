@@ -12,12 +12,15 @@ begin
 	using Plots
 end
 
+# ╔═╡ 459cd48e-f6b4-11ea-1212-e991aea501ab
+md"# Letters exercise using Soss.jl"
+
 # ╔═╡ 7c796a76-f380-11ea-201f-dbd03c41e18d
 data = vcat([i <= 36 ? rand(Poisson(10), 1)[1] : rand(Poisson(15), 1)[1] for i in 1:74])
 
 # ╔═╡ 423d32dc-f384-11ea-37b6-27c576e7b3cf
 md"
-Podemos ver los datos de cartas diarias enviadas durante aproximadamente dos meses y medio en el siguiente gráfico:
+We plot the data:
 "
 
 # ╔═╡ 39cfde02-f381-11ea-21a0-575ce6a2003d
@@ -28,7 +31,7 @@ end
 
 # ╔═╡ 44dbee78-f386-11ea-364d-736089beb2a0
 md"
-En la siguiente celda, definimos nuestro modelo.
+We define our model.
 "
 
 # ╔═╡ 20723620-f382-11ea-33ba-ed02683fd548
@@ -49,14 +52,14 @@ begin
 end
 
 # ╔═╡ 8ab9ffb2-f42d-11ea-0701-690fa85b0de5
-md" Los priors que proponemos para el modelo son:"
+md" The prior for the model are:"
 
 # ╔═╡ f7809d40-f42d-11ea-3675-23430cbc56c3
 begin
 	pri_mus = rand(Exponential(), 10000)
 	pri_taus = rand(Uniform(0, 74), 10000)
-	hist_primu = histogram(pri_mus, legend=false, xlabel="μ", ylabel="Probabilidad", normed=true, title="Priors asignadas a las μ")
-	hist_pritaus = histogram(pri_taus, legend=false, xlabel="τ", ylabel="Probabilidad", normed=true, title="Priors asignadas a τ")
+	hist_primu = histogram(pri_mus, legend=false, xlabel="μ", ylabel="Probability", normed=true, title="μ Prior")
+	hist_pritaus = histogram(pri_taus, legend=false, xlabel="τ", ylabel="Probability", normed=true, title="τ Prior")
 	plot(hist_primu, hist_pritaus, layout=(1,2))
 end
 
@@ -88,14 +91,15 @@ begin
 end
 
 # ╔═╡ Cell order:
+# ╠═459cd48e-f6b4-11ea-1212-e991aea501ab
 # ╠═2e596292-f380-11ea-3bd1-f5144495e8b7
 # ╠═7c796a76-f380-11ea-201f-dbd03c41e18d
 # ╟─423d32dc-f384-11ea-37b6-27c576e7b3cf
 # ╟─39cfde02-f381-11ea-21a0-575ce6a2003d
 # ╟─44dbee78-f386-11ea-364d-736089beb2a0
 # ╠═20723620-f382-11ea-33ba-ed02683fd548
-# ╟─8ab9ffb2-f42d-11ea-0701-690fa85b0de5
-# ╟─f7809d40-f42d-11ea-3675-23430cbc56c3
+# ╠═8ab9ffb2-f42d-11ea-0701-690fa85b0de5
+# ╠═f7809d40-f42d-11ea-3675-23430cbc56c3
 # ╠═37de6bb2-f382-11ea-2dec-05f0f92df578
 # ╠═55bab7b2-f382-11ea-0614-7b028363725d
 # ╠═1b8e4fc6-f383-11ea-3bea-d70cac623e23
