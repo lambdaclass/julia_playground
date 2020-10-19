@@ -61,7 +61,7 @@ end
 # ╔═╡ 151c6ca6-0ef9-11eb-16e3-67dd05cee664
 begin
 	# We are going to consider distances up to 30 ft, data is too noisy after that.
-	idx_distmax = Int64(30/0.2)
+	idx_distmax = Int64(25/0.2)
 	shot_accurracy = [i/j for (i,j) in zip(scored_shots, total_shots)][1:idx_distmax]
 	distances = h_bins[2:end][1:idx_distmax]
 end
@@ -73,7 +73,7 @@ error = @. sqrt(shot_accurracy * (1 - shot_accurracy) / total_shots[1:idx_distma
 scatter(distances, shot_accurracy, label=false, xlabel="Distance (ft)", ylabel="Accurracy", yerror=error, markersize=4, color="green", alpha=0.7)
 
 # ╔═╡ 0ac52920-0f13-11eb-169c-f798c482f550
-md" ### Logistic Vanilla model"
+md" ### Logistic vanilla model"
 
 # ╔═╡ 605beae2-0efd-11eb-24ed-45621cf45f9b
 chn = sample(basketball_logistic(distances, scored_shots, total_shots, length(distances)), NUTS(), MCMCThreads(), 4000, 4);
@@ -176,16 +176,13 @@ begin
 	closest_standard = closest_avg_dist ./ maximum(closest_avg_dist)
 end
 
-# ╔═╡ 4c5dca2c-0fc2-11eb-06c4-fb2e2b1b5dea
-
-
 # ╔═╡ 01916de6-0fc2-11eb-1e8b-83ab1eb56260
 begin
 	@model basketball_logistic2(x, y, z, n, J) = begin
 	  # parameters
 	  a ~ Normal(0, 1)
-	  b ~ Normal(0, 1)
-	  c ~ Normal(0, 1)
+	  b ~ Normal(-1, 1)
+	  c ~ Normal(1, 1)
 		
 	  # model
 	  for i in 1:J
@@ -196,7 +193,7 @@ begin
 end
 
 # ╔═╡ 59aa17a0-0fc5-11eb-2b05-4bcc9b2acf93
-chn2 = sample(basketball_logistic2(distances, scored_shots, closest_avg_dist, total_shots, length(distances)), NUTS(), MCMCThreads(), 4000, 4);
+chn2 = sample(basketball_logistic2(distances, scored_shots, closest_avg_dist, total_shots, length(distances)), NUTS(), MCMCThreads(), 4000, 2);
 
 # ╔═╡ 8d090750-0fc5-11eb-3bb5-873b215f8ef4
 begin
@@ -225,13 +222,13 @@ begin
 end
 
 # ╔═╡ 7dfc7476-0fc6-11eb-2080-f10ec344aaa8
-scatter(post_b2, post_a2)
+scatter(post_b2, post_a2, xlabel="b", ylabel="a", alpha=0.7, label=false)
 
 # ╔═╡ 82ce1bc4-0fc8-11eb-0d37-9143b5aaccc2
 md" ### Model with standardized variables"
 
 # ╔═╡ 0e4c7d82-0fc7-11eb-09ee-9529c2f0bf3f
-chn3 = sample(basketball_logistic2(dist_standard, scored_shots, closest_standard, total_shots, length(distances)), NUTS(), MCMCThreads(), 4000, 4);
+chn3 = sample(basketball_logistic2(dist_standard, scored_shots, closest_standard, total_shots, length(distances)), NUTS(), MCMCThreads(), 4000, 2);
 
 # ╔═╡ 5ede0d7e-0fc7-11eb-3ec5-7721c1a320de
 begin
@@ -270,24 +267,22 @@ begin
 	@model basketball_logistic3(x, y, z, n, J) = begin
 	  # parameters
 	  a ~ Normal(0, 1)
-	  b ~ Normal(-1, 1)
+	  b ~ Normal(0, 1)
 	  c ~ Normal(0, 1)
-	  d ~ Normal(1, 1)
+	  d ~ Normal(0, 1)
+	  e ~ Normal(0, 1)
 		
 	  # model
 	  for i in 1:J
-		p1 = logistic(c + d * z[i])
-		p2 = logistic(a + b * x[i])
-		y[i] ~ Binomial(n[i], p1*p2)
+		p = logistic(a + b * x[i] + c * log(z[i])) * logistic(d + e * log(z[i]))
+		#p = logistic(a + b * x[i] + c * z[i])
+		y[i] ~ Binomial(n[i], p)
 	  end
 	end
 end
 
 # ╔═╡ f8abc832-0fc8-11eb-14ef-91bc6847e8bb
-chn4 = sample(basketball_logistic3(dist_standard, scored_shots, closest_standard, total_shots, length(distances)), NUTS(), MCMCThreads(), 4000, 4);
-
-# ╔═╡ 0b419324-0fcb-11eb-1591-1508e46a5e45
-chn4
+chn4 = sample(basketball_logistic3(dist_standard, scored_shots, closest_standard, total_shots, length(distances)), NUTS(), MCMCThreads(), 4000, 1);
 
 # ╔═╡ 15d99a42-0fc9-11eb-15b2-27a68cf3708b
 begin
@@ -295,6 +290,7 @@ begin
     post_b4 = collect(reshape(chn4[:b], size(chn4[:b],1)*size(chn4[:b],2), 1))
 	post_c4 = collect(reshape(chn4[:c], size(chn4[:c],1)*size(chn4[:c],2), 1))
 	post_d4 = collect(reshape(chn4[:d], size(chn4[:d],1)*size(chn4[:d],2), 1))
+	post_e4 = collect(reshape(chn4[:e], size(chn4[:e],1)*size(chn4[:e],2), 1))
 end
 
 # ╔═╡ 2514c856-0fc9-11eb-26da-dd06cd7068c8
@@ -304,24 +300,72 @@ begin
 	b_med4 = median(post_b4)
 	c_med4 = median(post_c4)
 	d_med4 = median(post_d4)
+	e_med4 = median(post_e4)
 	
-	post_log1_med4 = [logistic(a_med4 + b_med4 * x) for x in dist_standard]
-	post_log2_med4 = [logistic(c_med4 + d_med4 * z) for z in closest_standard]
-
-	post_log_med4 = post_log1_med4 .* post_log2_med4
+	post_log_med4 = [logistic(a_med4 + b_med4 * x + c_med4 * log(z)) * logistic(d_med4 + e_med4 * log(z)) for (x,z) in zip(dist_standard, closest_standard)]
 	
-	a_samp4 = StatsBase.sample(post_a4, 100)
-	b_samp4 = StatsBase.sample(post_b4, 100)
-	c_samp4 = StatsBase.sample(post_c4, 100)
-	d_samp4 = StatsBase.sample(post_d4, 100)
+	a_samp4 = StatsBase.sample(post_a4, 1000)
+	b_samp4 = StatsBase.sample(post_b4, 1000)
+	c_samp4 = StatsBase.sample(post_c4, 1000)
+	d_samp4 = StatsBase.sample(post_d4, 1000)
+	e_samp4 = StatsBase.sample(post_e4, 1000)
 	
-	post_pred1_samp4 = [logistic(a_samp4[i] + b_samp4[i] * x) for x in dist_standard, i = 1:100]
-	post_pred2_samp4 = [logistic(c_samp4[i] + d_samp4[i] * z) for z in closest_standard, i = 1:100]
-	post_pred_samp4 = post_pred1_samp4 .* post_pred2_samp4
+	post_pred_samp4 = [logistic(a_samp4[i] + b_samp4[i] * x + c_samp4[i] * log(z)) * logistic(d_samp4[i] + e_samp4[i] * log(z)) for (x,z) in zip(dist_standard, closest_standard), i = 1:200]
 	
 	scatter(distances, shot_accurracy, yerror=error, ylim=(0,1),
-		xlabel="Shot distance (ft)", ylabel="Probability of success", color="green", legend=false, alpha=0.7)
-	plot!(distances, post_log_med4, color="green")
+		xlabel="Shot distance (ft)", ylabel="Probability of success", color="green", legend=false, alpha=1)
+	plot!(distances, post_log_med4, color="green", linewidth=5)
+	plot!(distances, post_pred_samp4, alpha=0.2)
+end
+
+# ╔═╡ 8ba4d36e-1222-11eb-32e3-f3146cb81191
+begin
+	@model basketball_logistic4(x, y, z, n, J) = begin
+	  # parameters
+	  a ~ Normal(0, 1)
+	  b ~ Normal(0, 1)
+	  c ~ Normal(0, 1)
+	  d ~ Normal(0, 1)
+		
+	  # model
+	  for i in 1:J
+		p = logistic(a + b * x[i]) * logistic(c + d * z[i] * log(z[i]))
+		y[i] ~ Binomial(n[i], p)
+	  end
+	end
+end
+
+# ╔═╡ 87f3881a-1224-11eb-1e41-e9ed9254e66e
+chn5 = sample(basketball_logistic4(dist_standard, scored_shots, closest_standard, total_shots, length(distances)), NUTS(), MCMCThreads(), 4000, 1);
+
+# ╔═╡ a7d5b46e-1224-11eb-0c7c-25829dff39e0
+begin
+    post_a5 = collect(reshape(chn5[:a], size(chn5[:a],1)*size(chn5[:a],2), 1))
+    post_b5 = collect(reshape(chn5[:b], size(chn5[:b],1)*size(chn5[:b],2), 1))
+	post_c5 = collect(reshape(chn5[:c], size(chn5[:c],1)*size(chn5[:c],2), 1))
+	post_d5 = collect(reshape(chn5[:d], size(chn5[:d],1)*size(chn5[:d],2), 1))
+end
+
+# ╔═╡ cace4346-1224-11eb-33ff-670520902437
+begin
+	# the fit to the model with the data
+	a_med5 = median(post_a5)
+	b_med5 = median(post_b5)
+	c_med5 = median(post_c5)
+	d_med5 = median(post_d5)
+	
+	post_log_med5 = [logistic(a_med5 + b_med5 * x) * logistic(c_med5 + d_med5 * log(z)) for (x,z) in zip(dist_standard, closest_standard)]
+	
+	a_samp5 = StatsBase.sample(post_a5, 1000)
+	b_samp5 = StatsBase.sample(post_b5, 1000)
+	c_samp5 = StatsBase.sample(post_c5, 1000)
+	d_samp5 = StatsBase.sample(post_d5, 1000)
+	
+	post_pred_samp5 = [logistic(a_samp5[i] + b_samp5[i] * x) * logistic(c_samp5[i] + d_samp5[i] * log(z)) for (x,z) in zip(dist_standard, closest_standard), i = 1:500]
+	
+	scatter(distances, shot_accurracy, yerror=error, ylim=(0,1),
+		xlabel="Shot distance (ft)", ylabel="Probability of success", color="green", legend=false, alpha=1)
+	plot!(distances, post_log_med4, color="purple", linewidth=5)
 	plot!(distances, post_pred_samp4, alpha=0.2)
 end
 
@@ -334,7 +378,7 @@ end
 # ╠═151c6ca6-0ef9-11eb-16e3-67dd05cee664
 # ╠═5cc181e6-0f00-11eb-1fcc-273d7a0cabe6
 # ╠═cde73cfa-0ef9-11eb-15b8-ef65484c9037
-# ╟─0ac52920-0f13-11eb-169c-f798c482f550
+# ╠═0ac52920-0f13-11eb-169c-f798c482f550
 # ╠═bee71b32-0efc-11eb-1726-73be2549a827
 # ╠═605beae2-0efd-11eb-24ed-45621cf45f9b
 # ╠═341b5cca-0efe-11eb-0cb1-fbeb5c5c5a33
@@ -349,7 +393,6 @@ end
 # ╠═df103ebe-0f1c-11eb-2942-eb32200d9078
 # ╠═016f20f6-0f22-11eb-3a7e-9b4818727f68
 # ╠═20e6e234-0fc2-11eb-2fbf-bf718b0a50da
-# ╠═4c5dca2c-0fc2-11eb-06c4-fb2e2b1b5dea
 # ╠═01916de6-0fc2-11eb-1e8b-83ab1eb56260
 # ╠═59aa17a0-0fc5-11eb-2b05-4bcc9b2acf93
 # ╠═8d090750-0fc5-11eb-3bb5-873b215f8ef4
@@ -363,6 +406,9 @@ end
 # ╟─a04640aa-0fc8-11eb-07e5-67e821c01960
 # ╠═bb70a24e-0fc8-11eb-3f68-d9981b131963
 # ╠═f8abc832-0fc8-11eb-14ef-91bc6847e8bb
-# ╠═0b419324-0fcb-11eb-1591-1508e46a5e45
 # ╠═15d99a42-0fc9-11eb-15b2-27a68cf3708b
 # ╠═2514c856-0fc9-11eb-26da-dd06cd7068c8
+# ╠═8ba4d36e-1222-11eb-32e3-f3146cb81191
+# ╠═87f3881a-1224-11eb-1e41-e9ed9254e66e
+# ╠═a7d5b46e-1224-11eb-0c7c-25829dff39e0
+# ╠═cace4346-1224-11eb-33ff-670520902437
