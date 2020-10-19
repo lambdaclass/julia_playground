@@ -362,12 +362,64 @@ begin
 	c_samp5 = StatsBase.sample(post_c5, 1000)
 	d_samp5 = StatsBase.sample(post_d5, 1000)
 	
-	post_pred_samp5 = [logistic(a_samp5[i] + b_samp5[i] * x) * logistic(c_samp5[i] + d_samp5[i] * log(z)) for (x,z) in zip(dist_standard, closest_standard), i = 1:500]
+	post_pred_samp5 = [logistic(a_samp5[i] + b_samp5[i] * x) * logistic(c_samp5[i] + d_samp5[i] * log(z)) for (x,z) in zip(dist_standard, closest_standard), i = 1:200]
 	
 	scatter(distances, shot_accurracy, yerror=error, ylim=(0,1),
 		xlabel="Shot distance (ft)", ylabel="Probability of success", color="green", legend=false, alpha=1)
-	plot!(distances, post_log_med4, color="purple", linewidth=5)
-	plot!(distances, post_pred_samp4, alpha=0.2)
+	plot!(distances, post_log_med5, color="purple", linewidth=5)
+	plot!(distances, post_pred_samp5, alpha=0.2)
+end
+
+# ╔═╡ 46ff509c-122a-11eb-1e34-b1157d2f30e6
+begin
+	@model basketball_logistic5(x, y, z, n, J) = begin
+	  # parameters
+	  a ~ Normal(0, 1)
+	  b ~ Normal(0, 1)
+	  c ~ Normal(0, 1)
+	  d ~ Normal(0, 1)
+		
+	  # model
+	  for i in 1:J
+		p1 = logistic(a + b * x[i]) #* logistic(c + d * log(z[i]))
+		p2 = logistic(c + d * log(3, z[i]))
+		y[i] ~ Binomial(n[i], p1*p2)
+	  end
+	end
+end
+
+# ╔═╡ 8c4778f8-122a-11eb-09bd-6d5240d83e00
+chn6 = sample(basketball_logistic5(dist_standard, scored_shots, closest_standard, total_shots, length(distances)), NUTS(), MCMCThreads(), 4000, 1);
+
+# ╔═╡ 55c67d24-122a-11eb-1347-5916c4a12057
+begin
+    post_a6 = collect(reshape(chn6[:a], size(chn6[:a],1)*size(chn6[:a],2), 1))
+    post_b6 = collect(reshape(chn6[:b], size(chn6[:b],1)*size(chn6[:b],2), 1))
+	post_c6 = collect(reshape(chn6[:c], size(chn6[:c],1)*size(chn6[:c],2), 1))
+	post_d6 = collect(reshape(chn6[:d], size(chn6[:d],1)*size(chn6[:d],2), 1))
+end
+
+# ╔═╡ 97fb9062-122a-11eb-39eb-c92f46f77589
+begin
+	# the fit to the model with the data
+	a_med6 = median(post_a6)
+	b_med6 = median(post_b6)
+	c_med6 = median(post_c6)
+	d_med6 = median(post_d6)
+	
+	post_log_med6 = [logistic(a_med6 + b_med6 * x) * logistic(c_med6 + d_med6 * log(3,z)) for (x,z) in zip(dist_standard, closest_standard)]
+	
+	a_samp6 = StatsBase.sample(post_a6, 1000)
+	b_samp6 = StatsBase.sample(post_b6, 1000)
+	c_samp6 = StatsBase.sample(post_c6, 1000)
+	d_samp6 = StatsBase.sample(post_d6, 1000)
+	
+	post_pred_samp6 = [logistic(a_samp6[i] + b_samp6[i] * x) * logistic(c_samp6[i] + d_samp6[i] * log(3,z)) for (x,z) in zip(dist_standard, closest_standard), i = 1:200]
+	
+	scatter(distances, shot_accurracy, yerror=error, ylim=(0,1),
+		xlabel="Shot distance (ft)", ylabel="Probability of success", color="green", legend=false, alpha=1)
+	plot!(distances, post_log_med6, color="purple", linewidth=5)
+	plot!(distances, post_pred_samp6, alpha=0.2)
 end
 
 # ╔═╡ Cell order:
@@ -413,3 +465,7 @@ end
 # ╠═87f3881a-1224-11eb-1e41-e9ed9254e66e
 # ╠═a7d5b46e-1224-11eb-0c7c-25829dff39e0
 # ╠═cace4346-1224-11eb-33ff-670520902437
+# ╠═46ff509c-122a-11eb-1e34-b1157d2f30e6
+# ╠═8c4778f8-122a-11eb-09bd-6d5240d83e00
+# ╠═55c67d24-122a-11eb-1347-5916c4a12057
+# ╠═97fb9062-122a-11eb-39eb-c92f46f77589
