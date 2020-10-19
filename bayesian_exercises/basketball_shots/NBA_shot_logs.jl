@@ -61,7 +61,7 @@ end
 # ╔═╡ 151c6ca6-0ef9-11eb-16e3-67dd05cee664
 begin
 	# We are going to consider distances up to 30 ft, data is too noisy after that.
-	idx_distmax = Int64(25/0.2)
+	idx_distmax = Int64(27.6/0.2)
 	shot_accurracy = [i/j for (i,j) in zip(scored_shots, total_shots)][1:idx_distmax]
 	distances = h_bins[2:end][1:idx_distmax]
 end
@@ -329,8 +329,9 @@ begin
 		
 	  # model
 	  for i in 1:J
-		p = logistic(a + b * x[i]) * logistic(c + d * z[i] * log(z[i]))
-		y[i] ~ Binomial(n[i], p)
+		p1 = logistic(a + b * x[i]) #* logistic(c + d * log(z[i]))
+		p2 = logistic(c + d * log(z[i]))
+		y[i] ~ Binomial(n[i], p1*p2)
 	  end
 	end
 end
@@ -398,7 +399,7 @@ end
 # ╠═8d090750-0fc5-11eb-3bb5-873b215f8ef4
 # ╠═f8845156-0fc5-11eb-3427-4df2e3a77152
 # ╠═7dfc7476-0fc6-11eb-2080-f10ec344aaa8
-# ╠═82ce1bc4-0fc8-11eb-0d37-9143b5aaccc2
+# ╟─82ce1bc4-0fc8-11eb-0d37-9143b5aaccc2
 # ╠═0e4c7d82-0fc7-11eb-09ee-9529c2f0bf3f
 # ╠═5ede0d7e-0fc7-11eb-3ec5-7721c1a320de
 # ╠═759a290c-0fcb-11eb-33d7-cf44c1a335ff
