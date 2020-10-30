@@ -107,21 +107,16 @@ md"### The model"
 begin
 	@model function football_matches(home_teams, away_teams, score_home, score_away, teams)
 	#hiper priors
-	μatt ~ Normal(0, 0.0001)
+	μatt ~ Normal(0, 1000)
 	σatt ~ Gamma(0.1, 0.1)
-	μdeff ~ Normal(0, 0.0001)
+	μdeff ~ Normal(0, 1000)
 	σdeff ~ Gamma(0.1,0.1)
 		
 	#Team-specific effects
-	home ~ Normal(0,0.0001)
+	home ~ Normal(0,1000)
 		
-	att_ = Vector{Real}(undef, length(teams))
-	deff_ = Vector{Real}(undef, length(teams))
-		
-	for i in eachindex(teams)
-		att_[i] ~ Normal(µatt, σatt)
-		deff_[i] ~ Normal(μdeff, σdeff)
-	end
+	att_ ~ filldist(Normal(µatt, σatt), length(teams))
+	deff_ ~ filldist(Normal(µdeff, σdeff), length(teams))
 	
 	dict = Dict{String, Int64}()
 	for (i, team) in enumerate(teams)
@@ -129,25 +124,19 @@ begin
 	end
 		
 	#Zero-sum constrains
-	mean_att = mean(att_)
-	mean_deff = mean(deff_)
+	offset = mean(att_) + mean(deff_)
 	
-	for i in eachindex(teams)
-		att_[i] = att_[i] - mean_att
-		deff_[i] = deff_[i] - mean_deff
-		end
-	
-	θ_home = Vector{Real}(undef, length(home_teams))
-	θ_away = Vector{Real}(undef, length(home_teams))
+	log_θ_home = Vector{Real}(undef, length(home_teams))
+	log_θ_away = Vector{Real}(undef, length(home_teams))
 		
 	#Modeling score-rate and scores
 	for i in 1:length(home_teams)
 		#score-rate
-		θ_home[i] = exp(home + att_[dict[home_teams[i]]] + deff_[dict[away_teams[i]]])
-		θ_away[i] = exp(att_[dict[away_teams[i]]] + deff_[dict[home_teams[i]]])
+		log_θ_home[i] = home + att_[dict[home_teams[i]]] + deff_[dict[away_teams[i]]] - offset
+		log_θ_away[i] = att_[dict[away_teams[i]]] + deff_[dict[home_teams[i]]] - offset
 		#scores
-		score_home[i] ~ Poisson(θ_home[i])
-		score_away[i] ~ Poisson(θ_away[i])
+		score_home[i] ~ LogPoisson(log_θ_home[i])
+		score_away[i] ~ LogPoisson(log_θ_away[i])
 	end
 	
 	end
@@ -181,7 +170,7 @@ atletico_σ = std(post_att[2])
 post_home = collect(get(posterior, :home));
 
 # ╔═╡ 844291d6-1a0b-11eb-03a1-df08448409c4
-median(post_home[1])
+mean(post_home[1])
 
 # ╔═╡ b1142e36-1a0b-11eb-2942-cf8c6eefdfe7
 post_μatt = collect(get(posterior, :μatt));

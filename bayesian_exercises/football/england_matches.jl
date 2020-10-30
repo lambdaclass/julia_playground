@@ -88,27 +88,30 @@ begin
 		deff_[i] = deff_[i] - mean_deff
 		end
 		
+	θ_home = Vector{Real}(undef, length(home_teams))
+	θ_away = Vector{Real}(undef, length(home_teams))
+		
 	#Modeling score-rate and scores
 	for i in 1:length(home_teams)
 		#score-rate
-		θ_home = exp(home + att_[dict[home_teams[i]]] + deff_[dict[away_teams[i]]])
-		θ_away = exp(att_[dict[away_teams[i]]] + deff_[dict[home_teams[i]]])
+		θ_home[i] = exp(home + att_[dict[home_teams[i]]] + deff_[dict[away_teams[i]]])
+		θ_away[i] = exp(att_[dict[away_teams[i]]] + deff_[dict[home_teams[i]]])
 		#scores
-		score_home[i] ~ Poisson(θ_home)
-		score_away[i] ~ Poisson(θ_away)
+		score_home[i] ~ Poisson(θ_home[i])
+		score_away[i] ~ Poisson(θ_away[i])
 	end
 	
 	end
 end
 
-# ╔═╡ 9f48d42c-1a1f-11eb-2a86-9bffeee8eb1b
+# ╔═╡ def7c618-1a4d-11eb-160c-0d4a28e15da1
 model = football_matches(matches_df[1], matches_df[2], matches_df[3], matches_df[4], teams_df[1])
 
 # ╔═╡ ad743226-1a1f-11eb-0821-ff775a89a4ef
 posterior = sample(model, NUTS(),1000)
 
 # ╔═╡ 6f93f71e-1a26-11eb-3f18-55268a95c5fd
-post_home = collect(get(posterior, :home));
+post_home = collect(get(posterior, :home))
 
 # ╔═╡ 81b593ce-1a26-11eb-352d-7120a509bd15
 mean(post_home[1])
@@ -129,7 +132,7 @@ histogram(post_home[1])
 # ╠═7639dc84-1a1f-11eb-10e2-b39f98dca4ed
 # ╠═84fe1936-1a1f-11eb-30be-4572afbfb8f6
 # ╠═8b6be714-1a1f-11eb-216b-83462872ee6f
-# ╠═9f48d42c-1a1f-11eb-2a86-9bffeee8eb1b
+# ╠═def7c618-1a4d-11eb-160c-0d4a28e15da1
 # ╠═ad743226-1a1f-11eb-0821-ff775a89a4ef
 # ╠═6f93f71e-1a26-11eb-3f18-55268a95c5fd
 # ╠═81b593ce-1a26-11eb-352d-7120a509bd15
