@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.11.14
+# v0.12.2
 
 using Markdown
 using InteractiveUtils
@@ -98,23 +98,60 @@ posterior = sample(model, NUTS(),1000)
 begin
 	post_att = collect(get(posterior, :att_)[1])
 	post_def = collect(get(posterior, :deff_)[1])
-	post_def = collect(get(posterior, :home)[1])
+	#post_def = collect(get(posterior, :home)[1])
+end;
+
+# ╔═╡ de185204-1d3f-11eb-2d00-39a5dd7785d4
+begin
+	teams_att = []
+	teams_def = []
+	for i in 1:length(post_att)
+		push!(teams_att, post_att[i])
+		push!(teams_def, post_def[i])
+	end
 end
 
-# ╔═╡ 44223104-1d37-11eb-073b-41e8a684d252
-mean(post_att[4])
+# ╔═╡ 6418d3ce-1d40-11eb-0523-3914c40b4149
+begin
+teams_att_μ = mean.(teams_att)
+teams_def_μ = mean.(teams_def)
+teams_att_σ = std.(teams_att)
+end
 
-# ╔═╡ 30586da6-1d3b-11eb-1372-4173d4f3f890
-mean(post_def[4])
+# ╔═╡ 8b91e1a6-1d41-11eb-3248-614810563a36
+abbr_names = [t[1:3] for t in teams]
 
-# ╔═╡ 0613a2a4-1d3b-11eb-1a8e-fb750a9d1021
-mean(post_att[11])
+# ╔═╡ 277795ac-1d42-11eb-166c-79c565d6bf2a
+sorted_att = sortperm(teams_att_μ)
 
-# ╔═╡ 0feb853c-1d3b-11eb-243f-abeaba311466
-mean(post_def[11])
+# ╔═╡ 72bdf09e-1d45-11eb-0085-5ba014db07f0
+sorted_names = abbr_names[sorted_att]
 
-# ╔═╡ 1790782c-1d3b-11eb-2825-8d9d3335f8ee
+# ╔═╡ e5706920-1d43-11eb-25fe-593fcbf6d932
+begin
+	scatter(1:20, teams_att_μ[sorted_att], grid=false, legend=false, yerror=teams_att_σ[sorted_att], color=:blue)
+	annotate!(collect(1:20), teams_att_μ[sorted_att] .+ 0.2, text.(sorted_names, :black, :center, 8))
+	ylabel!("Mean team attack")
+end
 
+# ╔═╡ 86e9ce8c-1d48-11eb-0354-1f1c27728e0e
+table_position = [12, 5, 9, 4, 13, 14, 1, 15, 12, 6, 2, 16, 10, 17, 20, 3, 7, 8, 19, 18]
+
+# ╔═╡ 4fa2b18e-1d50-11eb-169e-4777411537c1
+position = sortperm(table_position)
+
+# ╔═╡ 7dfd3942-1d40-11eb-1a1e-250774644dc2
+begin
+scatter(teams_att_μ, teams_def_μ, legend=false)
+annotate!(teams_att_μ, teams_def_μ.+ 0.015, text.(abbr_names, :black, :center, 8))
+annotate!(teams_att_μ, teams_def_μ.- 0.015, text.(position, :left, :center, 8))
+
+xlabel!("Mean team attack")
+ylabel!("Mean team defense")
+end
+
+# ╔═╡ bc1b6958-1d4f-11eb-2f77-0d992418be42
+teams_df[1]
 
 # ╔═╡ Cell order:
 # ╠═ded336b0-1d34-11eb-2784-015cbf2b8bdb
@@ -131,8 +168,13 @@ mean(post_def[11])
 # ╠═668b86d4-1d35-11eb-3ce0-f5fff3291ee1
 # ╠═67f1fcbc-1d35-11eb-2fa7-d16c2288c8dc
 # ╠═3bac52b6-1d37-11eb-0676-7f2c0aa20bd0
-# ╠═44223104-1d37-11eb-073b-41e8a684d252
-# ╠═30586da6-1d3b-11eb-1372-4173d4f3f890
-# ╠═0613a2a4-1d3b-11eb-1a8e-fb750a9d1021
-# ╠═0feb853c-1d3b-11eb-243f-abeaba311466
-# ╠═1790782c-1d3b-11eb-2825-8d9d3335f8ee
+# ╠═de185204-1d3f-11eb-2d00-39a5dd7785d4
+# ╠═6418d3ce-1d40-11eb-0523-3914c40b4149
+# ╠═7dfd3942-1d40-11eb-1a1e-250774644dc2
+# ╠═8b91e1a6-1d41-11eb-3248-614810563a36
+# ╠═277795ac-1d42-11eb-166c-79c565d6bf2a
+# ╠═e5706920-1d43-11eb-25fe-593fcbf6d932
+# ╠═72bdf09e-1d45-11eb-0085-5ba014db07f0
+# ╠═86e9ce8c-1d48-11eb-0354-1f1c27728e0e
+# ╠═4fa2b18e-1d50-11eb-169e-4777411537c1
+# ╠═bc1b6958-1d4f-11eb-2f77-0d992418be42
