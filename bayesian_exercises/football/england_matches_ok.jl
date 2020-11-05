@@ -1,12 +1,11 @@
 ### A Pluto.jl notebook ###
-# v0.12.2
+# v0.11.14
 
 using Markdown
 using InteractiveUtils
 
 # ╔═╡ ded336b0-1d34-11eb-2784-015cbf2b8bdb
 begin
-	using CSV
 	using JSON
 	using DataFrames
 	using Plots
@@ -138,7 +137,7 @@ end
 table_position = [12, 5, 9, 4, 13, 14, 1, 15, 12, 6, 2, 16, 10, 17, 20, 3, 7, 8, 19, 18]
 
 # ╔═╡ 4fa2b18e-1d50-11eb-169e-4777411537c1
-position = sortperm(table_position)
+position = sortperm(table_position) #Indice de los valores ordenados
 
 # ╔═╡ 7dfd3942-1d40-11eb-1a1e-250774644dc2
 begin
