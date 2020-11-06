@@ -14,6 +14,12 @@ end
 # ╔═╡ 56de188c-1d35-11eb-0064-c191886a8931
 using Turing
 
+# ╔═╡ 58781c48-1f9b-11eb-2227-418315ca11c9
+using StatsPlots
+
+# ╔═╡ 95e53316-203d-11eb-32fd-55d50a94ba4f
+using Distributions
+
 # ╔═╡ 2153f38a-1d35-11eb-189c-53219c315b3b
 england_league = JSON.parsefile("matches_England.json");
 
@@ -53,15 +59,17 @@ teams_df = DataFrame(team = teams, idex = team_index)
 # ╔═╡ 5d879190-1d35-11eb-3411-e3c6012f8026
 begin
 	@model function football_matches(home_teams, away_teams, score_home, score_away, teams)
-	#hiper priors
-	σatt ~ Gamma(0.1, 0.1)
-	σdeff ~ Gamma(0.1,0.1)
+	#hyper priors
+	σatt ~ Exponential(1)
+	σdeff ~ Exponential(1)
+	μatt ~ Normal(0, 0.1)
+	μdef ~ Normal(0,0.1)
 		
 	#Team-specific effects
-	home ~ Normal(0,100)
+	home ~ Normal(0,1)
 		
-	att_ ~ filldist(Normal(0, σatt), length(teams))
-	deff_ ~ filldist(Normal(0, σdeff), length(teams))
+	att_ ~ filldist(Normal(μatt, σatt), length(teams))
+	deff_ ~ filldist(Normal(μatt, σdeff), length(teams))
 	
 	dict = Dict{String, Int64}()
 	for (i, team) in enumerate(teams)
@@ -91,7 +99,7 @@ end
 model = football_matches(matches_df[1], matches_df[2], matches_df[3], matches_df[4], teams_df[1])
 
 # ╔═╡ 67f1fcbc-1d35-11eb-2fa7-d16c2288c8dc
-posterior = sample(model, NUTS(),1000)
+posterior = sample(model, NUTS(),1000 ,n_chains = 3)
 
 # ╔═╡ 3bac52b6-1d37-11eb-0676-7f2c0aa20bd0
 begin
@@ -117,8 +125,20 @@ teams_def_μ = mean.(teams_def)
 teams_att_σ = std.(teams_att)
 end
 
+# ╔═╡ f3dd2aa6-2041-11eb-2201-6fc5be1a1739
+teams
+
 # ╔═╡ 8b91e1a6-1d41-11eb-3248-614810563a36
-abbr_names = [t[1:3] for t in teams]
+begin
+	abbr_names = [t[1:3] for t in teams]
+	abbr_names[5] = "Mun"
+	abbr_names[10] = "Whu"
+	abbr_names[11] = "Mci"
+	abbr_names[16] = "Bou"
+	abbr_names[18] = "Wba"
+	abbr_names[19] = "Stk"
+	abbr_names[20] = "Bha"
+end;
 
 # ╔═╡ 277795ac-1d42-11eb-166c-79c565d6bf2a
 sorted_att = sortperm(teams_att_μ)
@@ -129,12 +149,12 @@ sorted_names = abbr_names[sorted_att]
 # ╔═╡ e5706920-1d43-11eb-25fe-593fcbf6d932
 begin
 	scatter(1:20, teams_att_μ[sorted_att], grid=false, legend=false, yerror=teams_att_σ[sorted_att], color=:blue)
-	annotate!(collect(1:20), teams_att_μ[sorted_att] .+ 0.2, text.(sorted_names, :black, :center, 8))
+	annotate!(collect(1:20), teams_att_μ[sorted_att] .+ 0.238, text.(sorted_names, :black, :center, 8))
 	ylabel!("Mean team attack")
 end
 
 # ╔═╡ 86e9ce8c-1d48-11eb-0354-1f1c27728e0e
-table_position = [12, 5, 9, 4, 13, 14, 1, 15, 12, 6, 2, 16, 10, 17, 20, 3, 7, 8, 19, 18]
+table_position = [11, 5, 9, 4, 13, 14, 1, 15, 12, 6, 2, 16, 10, 17, 20, 3, 7, 8, 19, 18]
 
 # ╔═╡ 4fa2b18e-1d50-11eb-169e-4777411537c1
 position = sortperm(table_position) #Indice de los valores ordenados
@@ -142,8 +162,8 @@ position = sortperm(table_position) #Indice de los valores ordenados
 # ╔═╡ 7dfd3942-1d40-11eb-1a1e-250774644dc2
 begin
 scatter(teams_att_μ, teams_def_μ, legend=false)
-annotate!(teams_att_μ, teams_def_μ.+ 0.015, text.(abbr_names, :black, :center, 8))
-annotate!(teams_att_μ, teams_def_μ.- 0.015, text.(position, :left, :center, 8))
+annotate!(teams_att_μ, teams_def_μ.+ 0.016, text.(abbr_names, :black, :center, 8))
+annotate!(teams_att_μ, teams_def_μ.- 0.016, text.(position, :left, :center, 8))
 
 xlabel!("Mean team attack")
 ylabel!("Mean team defense")
@@ -151,6 +171,22 @@ end
 
 # ╔═╡ bc1b6958-1d4f-11eb-2f77-0d992418be42
 teams_df[1]
+
+# ╔═╡ 6815738a-1f9b-11eb-27b7-390535f0498d
+plot(Gamma(0.1,0.1))
+
+# ╔═╡ a1d4c08a-1f9d-11eb-07b2-85b4de718c89
+plot(Exponential(1))
+
+# ╔═╡ 8f6dc8fe-1fc5-11eb-323d-a7d64eb92f73
+begin
+x=collect(1:6)
+y= x .*(6 .- x)/ 35
+scatter(x,y)
+end
+
+# ╔═╡ 9b6e2ffe-203d-11eb-22ba-f7aee759ea0b
+plot(Distributions.LogPoisson(10))
 
 # ╔═╡ Cell order:
 # ╠═ded336b0-1d34-11eb-2784-015cbf2b8bdb
@@ -170,6 +206,7 @@ teams_df[1]
 # ╠═de185204-1d3f-11eb-2d00-39a5dd7785d4
 # ╠═6418d3ce-1d40-11eb-0523-3914c40b4149
 # ╠═7dfd3942-1d40-11eb-1a1e-250774644dc2
+# ╠═f3dd2aa6-2041-11eb-2201-6fc5be1a1739
 # ╠═8b91e1a6-1d41-11eb-3248-614810563a36
 # ╠═277795ac-1d42-11eb-166c-79c565d6bf2a
 # ╠═e5706920-1d43-11eb-25fe-593fcbf6d932
@@ -177,3 +214,9 @@ teams_df[1]
 # ╠═86e9ce8c-1d48-11eb-0354-1f1c27728e0e
 # ╠═4fa2b18e-1d50-11eb-169e-4777411537c1
 # ╠═bc1b6958-1d4f-11eb-2f77-0d992418be42
+# ╠═58781c48-1f9b-11eb-2227-418315ca11c9
+# ╠═6815738a-1f9b-11eb-27b7-390535f0498d
+# ╠═a1d4c08a-1f9d-11eb-07b2-85b4de718c89
+# ╠═8f6dc8fe-1fc5-11eb-323d-a7d64eb92f73
+# ╠═95e53316-203d-11eb-32fd-55d50a94ba4f
+# ╠═9b6e2ffe-203d-11eb-22ba-f7aee759ea0b
