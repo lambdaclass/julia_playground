@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.12.3
+# v0.12.4
 
 using Markdown
 using InteractiveUtils
@@ -330,7 +330,7 @@ begin
 	  # model
 	  for i in 1:J
 		p1 = logistic(a + b * x[i]) #* logistic(c + d * log(z[i]))
-		p2 = logistic(c + d * log(z[i]))
+		p2 = logistic(c + d * z[i] * log(z[i]))
 		y[i] ~ Binomial(n[i], p1*p2)
 	  end
 	end
@@ -355,14 +355,14 @@ begin
 	c_med5 = median(post_c5)
 	d_med5 = median(post_d5)
 	
-	post_log_med5 = [logistic(a_med5 + b_med5 * x) * logistic(c_med5 + d_med5 * log(z)) for (x,z) in zip(dist_standard, closest_standard)]
+	post_log_med5 = [logistic(a_med5 + b_med5 * x) * logistic(c_med5 + d_med5 * z * log(z)) for (x,z) in zip(dist_standard, closest_standard)]
 	
 	a_samp5 = StatsBase.sample(post_a5, 1000)
 	b_samp5 = StatsBase.sample(post_b5, 1000)
 	c_samp5 = StatsBase.sample(post_c5, 1000)
 	d_samp5 = StatsBase.sample(post_d5, 1000)
 	
-	post_pred_samp5 = [logistic(a_samp5[i] + b_samp5[i] * x) * logistic(c_samp5[i] + d_samp5[i] * log(z)) for (x,z) in zip(dist_standard, closest_standard), i = 1:200]
+	post_pred_samp5 = [logistic(a_samp5[i] + b_samp5[i] * x) * logistic(c_samp5[i] + d_samp5[i] * z * log(z)) for (x,z) in zip(dist_standard, closest_standard), i = 1:200]
 	
 	scatter(distances, shot_accurracy, yerror=error, ylim=(0,1),
 		xlabel="Shot distance (ft)", ylabel="Probability of success", color="green", legend=false, alpha=1)
