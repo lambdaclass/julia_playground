@@ -110,7 +110,7 @@ md"Probably seeing this data in a table is not being very enlightening, let's pl
 
 # ╔═╡ 012c3bc0-2853-11eb-0b54-e728d12af1a0
 begin
-	time = collect(1:16)
+	time = collect(0:2:30)
 	scatter(time, ultima_online[1, :], label="Pray")
 	scatter!(time, ultima_online[2, :], label="Pred")
 end
@@ -120,8 +120,10 @@ md"Can you spot the pattern? Let's connect the dots to make our work easier"
 
 # ╔═╡ 99dc5b7a-2853-11eb-2fbe-03a4ccd858fa
 begin
-	plot(time, ultima_online[1,:], label="Pray")
-	plot!(time, ultima_online[2, :], label="Pred")
+	plot(time, ultima_online[1,:], label=false)
+	plot!(time, ultima_online[2, :], label=false)
+	scatter!(time, ultima_online[1, :], label="Pray")
+	scatter!(time, ultima_online[2, :], label="Pred")
 end
 
 # ╔═╡ 067e3d8e-2854-11eb-0bbe-21361e908a3a
@@ -129,7 +131,7 @@ md"Well, this already looks much nicer, but could you venture to say what are th
 This task that seems impossible a priori, is easily achievable with the SciML engine:"
 
 # ╔═╡ 6b783782-2857-11eb-2f38-371de1067304
-u_init = [1,1]
+u_init = [1,1];
 
 # ╔═╡ d96267ee-2856-11eb-0cc3-4bdba4e5e8e4
 @model function fitlv(data)
@@ -149,13 +151,176 @@ u_init = [1,1]
 end
 
 # ╔═╡ 30c1adee-2857-11eb-04de-6fab46e4754c
-model = fitlv(ultima_online)
+model = fitlv(ultima_online);
 
 # ╔═╡ 46f9b992-2857-11eb-2682-6d5ad3200adc
-chain = sample(model, NUTS(.6),10000); #p = [0.8, 0.4, 0.2, 0.4]
+posterior = sample(model, NUTS(.6),10000); 
 
 # ╔═╡ 3c97037a-2858-11eb-206a-57dc08cde44f
-plot(chain)
+plot(posterior)
+
+# ╔═╡ d7ff20c8-28e3-11eb-007d-bd263220eb91
+md"So, our model is pretty sure that the parameters used by Garriott for the birth and death rate were around 0.8 and 0.4 for the pray population. For the pray the values were around 0.2 and 0.4. As you can see the markov chains of the sampling process are really healthy, so we can be confident that the answers we obtain are correct.
+
+Let's stop for a second to appreciate the really complex calculation that we have just done. Until now we always made Bayesian inference in linear models that anyway required us to use complex mechanisms to be able to sample the distributions a posteriori of our parameters. 
+
+The powerful SciML engine allows us to make Bayesian inferences but from dynamic systems of differential equations! That is, now we can get into an even higher level of complexity for our models, keeping the advantage of being able to have a quantification of the uncertainty we are working with, among other advantages that the Bayesian framework gives us.
+
+#### Visualizing the results
+
+As always, it is very interesting to be able to observe the uncertainty that Bayesianism provides us *within* our model. Let´s go for it!
+
+First we should make a smaller sampling of the distributions of each parameter so that the number of models we plot does not become a problem when visualizing:
+"
+
+# ╔═╡ 5b7f3688-2919-11eb-39c8-fd9c478dbf7c
+begin
+	birth_pray_ = sample(collect(get(posterior, :birth_pray)[1]), 100)
+	mort_pray_ = sample(collect(get(posterior, :mort_pray)[1]), 100)
+	birth_pred_ = sample(collect(get(posterior, :birth_pred)[1]), 100)
+	mort_pred_ = sample(collect(get(posterior, :mort_pred)[1]), 100)
+end;
+
+# ╔═╡ dee1f67c-291a-11eb-11ba-7d6b7129b15c
+md"And now let's solve the system of differential equations for each of the combinations of parameters that we form, saving them in *solutions* so that later we can use this array in the plotting. You can scroll left and see the solution to the 101 models we propouse (Notice that we add one final model using the mean of each parameter)"
+
+# ╔═╡ 3794d5aa-291b-11eb-1e16-31c59b6d37a2
+begin
+	solutions = []
+	for i in 1:length(birth_pray_)
+		p = [birth_pray_[i], mort_pray_[i], birth_pred_[i], mort_pred_[i]]
+		problem = ODEProblem(lotka_volterra,u0,(0.0,30.0),p)
+		push!(solutions, solve(problem,Tsit5(), saveat = 0.1))
+	end
+	
+	p_mean = [mean(birth_pray_), mean(mort_pray_), mean(birth_pred_), mean(mort_pred_)]
+	
+	problem1 = ODEProblem(lotka_volterra,u0,(0.0,30.0),p_mean)
+	push!(solutions, solve(problem1, Tsit5(), saveat = 0.1))
+end
+
+# ╔═╡ 6244beac-291e-11eb-3f26-df3907063992
+md"The last step is simply to plot each of the models we generate. I also added the data points with which we infer all the model, to be able to appreciate the almost perfect fit:"
+
+# ╔═╡ 156fce66-291c-11eb-2f95-65b806ba3fd8
+begin 
+	#Plotting the differents models we infer
+	plot(solutions[1], alpha=0.2, color="blue")
+	for i in 2:(length(solutions) - 1)
+		plot!(solutions[i], alpha=0.2, legend=false, color="blue")
+	end
+	plot!(solutions[end], lw = 2, color="red")
+	
+	#Contrasting them with the data
+	scatter!(time, ultima_online[1, :], color = "blue")
+	scatter!(time, ultima_online[2, :], color = "orange")
+	
+end
+
+# ╔═╡ 1df62c6a-29a8-11eb-2079-f17cca94ad87
+md"""And that's how we get our model fitted to the data, with a powerful visualization of the uncertainty we handle.
+
+But let's stop for a second... The title of this chapter has the word "catastrophe" in it, but we just made a beautiful graph showing a Bayesian inference about the parameters of a system of differential equations. So, what gives that terrible name to our -for now- beautiful chapter?
+
+#### The virtual catastrophe
+
+Okay, so far we know that Garriott and his team created a gigantic and highly complex ecological system, where the animals interacted with each other reaching natural balances.
+
+Also, as expected when the players were included, they would hunt some animals to find resources or to defend themselves from dangerous carnivores. This was also taken into account, making the dynamic system capable of absorbing this "new" source of mortality, and reaching a balance again.
+
+This would be the equivalent of adding a player-induced mortality rate in the prey and predators of our Lotka-volterra model:
+"""
+
+# ╔═╡ 53495618-29c0-11eb-120b-c1aacab1bd10
+function lotka_volterra_players(du,u,p,t)
+  #Lotka-Volterra function with players that hunt
+  pray, pred  = u
+  birth_pray, mort_pray, birth_pred, mort_pred, players_pray, players_pred = p
+
+  du[1] = dpray = (birth_pray - mort_pray * pred - players_pray)*pray
+  du[2] = dpred = (birth_pred * pray - mort_pred - players_pred)*pred
+end
+
+# ╔═╡ bd5e3e50-29c1-11eb-1681-3d25bf811534
+mean(collect(get(posterior, :birth_pray)[1]))	
+
+# ╔═╡ 03832436-29c2-11eb-31c6-1be2908892f4
+mean(collect(get(posterior, :birth_pred)[1]))
+
+# ╔═╡ 11e1ded2-29c2-11eb-2d76-a7536d816519
+mean(collect(get(posterior, :mort_pray)[1]))
+
+# ╔═╡ 2bffb870-29c2-11eb-06a8-5dbd9be5acc5
+mean(collect(get(posterior, :mort_pred)[1]))
+
+# ╔═╡ 3a325512-29c2-11eb-1a39-67e0ab6f5d81
+md"""We will then hypothesize that the parameters chosen to model the virtual ecology were 0.8 and 0.4, and 0.2 and 0.4 for the birth and death rates of the prey and predator, respectively. 
+
+Let's see what would happen if the players added a mortality rate of 0.4 for both animals, which would be to assume that they kill as much as the "natural" deaths that were already occurring. """
+
+# ╔═╡ a8d8c736-29c1-11eb-08d9-6bb68a91b39c
+begin
+	p1 = [0.8, 0.4, 0.2, 0.4, 0.4, 0.4] 
+	#These last two 0.4 are the ones we are going to attribute to the players 
+	u0_ = [1,1]
+	prob_players = ODEProblem(lotka_volterra_players,u0_,(0.0,30.0),p1)
+end;
+
+# ╔═╡ 3088fd2e-29c6-11eb-2496-a7ad9348a2f2
+sol_players = solve(prob_players,Tsit5());
+
+# ╔═╡ 517243c6-29c6-11eb-2547-291c993759a0
+plot(sol_players)
+
+# ╔═╡ e0b4bf28-29c6-11eb-244b-5b74ee4e6aac
+md"As you can see, the players could hunt enough to double the mortality rate of both animals, and the system would still be in balance. More herbivores would be observed (because they have a higher birth rate, and there would now be fewer carnivores) and the phase - the time it takes for a full cycle of population decline and rise - would be delayed.
+
+The creators of the game even assumed that the players would hunt mostly carnivores, because they would be rewarded with higher scores and resources (and because they would also have to defend themselves from the fierce attacks of the carnivores). The balance would be maintained anyway:"
+
+# ╔═╡ 2522aa16-29c8-11eb-28f8-074b0ccff797
+begin
+	p2 = [0.8, 0.4, 0.2, 0.4, 0.4, 0.6] 
+	# 0.6 player-induced mortality rate for carnivores  
+	prob_players_ = ODEProblem(lotka_volterra_players,u0_,(0.0,30.0),p2)
+end;
+
+# ╔═╡ 72b871fc-29c8-11eb-2346-254791abad53
+sol_players_ = solve(prob_players_);
+
+# ╔═╡ 9b7b362c-29c8-11eb-121b-c3f6eca222ce
+plot(sol_players_, legend=false)
+
+# ╔═╡ 7bed8934-29d1-11eb-3131-5737fd4fcf32
+md"However, even with all the delicate planning of more than 3 years by Garriott and his team, the entire magnificent virtual ecosystem they had built was destroyed the very second the game was launched.
+
+What they never imagined is that the players, in the same instant that the game started, began what was the biggest mass murder ever seen in the history of video games. All the logic was exceeded. The players were not attacking the carnivores in search of high scores and resources, but were completely focused on killing any animal that crossed their path. 
+
+The motivation was to kill, rather than logically collect resources, so strategies such as minimizing the points obtained by hunting herbivores and increasing those obtained by hunting carnivores did not work. All logic was exceeded. 
+
+This irrationality made the mortality rate of herbivores much higher than any possible birth rate, causing the whole ecosystem to break down. Without herbivores, there was no food for carnivores...
+"
+
+# ╔═╡ a95388be-29c8-11eb-14d3-97da51f5ec1a
+begin
+	crazy_killer_players = [0.8, 0.4, 0.2, 0.4, 1, 0.8] 
+	prob_crazy_players = ODEProblem(lotka_volterra_players,u0_,(0.0,30.0),crazy_killer_players)
+end;
+
+# ╔═╡ 97e01ccc-29c9-11eb-3634-ab23af3c4163
+sol_crazy_players = solve(prob_crazy_players);
+
+# ╔═╡ b59baa88-29c9-11eb-1645-f103a056dbca
+plot(sol_crazy_players, legend=false)
+
+# ╔═╡ 0e53ba34-29d5-11eb-3540-bbc2a0127cf5
+md"This sad story ends with the whole beautiful virtual ecosystem, planned for 3 years, destroyed in seconds. The animals of the medieval world that Garriott and his team had imagined had to be eliminated... In case you want to know more about this, you can listen to the story from the mouth of the protagonist himself [here](https://www.youtube.com/watch?v=KFNxJVTJleE&ab_channel=ArsTechnica)
+
+But like every difficult moment, this one also left great lessons. From that moment on, the games started to been tested with real people during the whole development process. The idea that you could predict the behavior of millions of players was finished, and they started to test instead. 
+
+This was the beginning of a very Bayesian way of thinking, in which we start with a priori hypotheses that are tested with reality to modify the old beliefs, and gain a deeper understanding of what is really happening. 
+
+It makes sense, doesn't it? After all, getting comfortable with our beliefs never is a very good option, and going out into the world to learn new things seem like a more interesting one.
+"
 
 # ╔═╡ Cell order:
 # ╟─74cc60be-2821-11eb-3ad7-e581052437bd
@@ -190,3 +355,28 @@ plot(chain)
 # ╠═30c1adee-2857-11eb-04de-6fab46e4754c
 # ╠═46f9b992-2857-11eb-2682-6d5ad3200adc
 # ╠═3c97037a-2858-11eb-206a-57dc08cde44f
+# ╟─d7ff20c8-28e3-11eb-007d-bd263220eb91
+# ╠═5b7f3688-2919-11eb-39c8-fd9c478dbf7c
+# ╟─dee1f67c-291a-11eb-11ba-7d6b7129b15c
+# ╠═3794d5aa-291b-11eb-1e16-31c59b6d37a2
+# ╟─6244beac-291e-11eb-3f26-df3907063992
+# ╠═156fce66-291c-11eb-2f95-65b806ba3fd8
+# ╟─1df62c6a-29a8-11eb-2079-f17cca94ad87
+# ╠═53495618-29c0-11eb-120b-c1aacab1bd10
+# ╠═bd5e3e50-29c1-11eb-1681-3d25bf811534
+# ╠═03832436-29c2-11eb-31c6-1be2908892f4
+# ╠═11e1ded2-29c2-11eb-2d76-a7536d816519
+# ╠═2bffb870-29c2-11eb-06a8-5dbd9be5acc5
+# ╟─3a325512-29c2-11eb-1a39-67e0ab6f5d81
+# ╠═a8d8c736-29c1-11eb-08d9-6bb68a91b39c
+# ╠═3088fd2e-29c6-11eb-2496-a7ad9348a2f2
+# ╠═517243c6-29c6-11eb-2547-291c993759a0
+# ╟─e0b4bf28-29c6-11eb-244b-5b74ee4e6aac
+# ╠═2522aa16-29c8-11eb-28f8-074b0ccff797
+# ╠═72b871fc-29c8-11eb-2346-254791abad53
+# ╠═9b7b362c-29c8-11eb-121b-c3f6eca222ce
+# ╟─7bed8934-29d1-11eb-3131-5737fd4fcf32
+# ╠═a95388be-29c8-11eb-14d3-97da51f5ec1a
+# ╠═97e01ccc-29c9-11eb-3634-ab23af3c4163
+# ╠═b59baa88-29c9-11eb-1645-f103a056dbca
+# ╟─0e53ba34-29d5-11eb-3540-bbc2a0127cf5
