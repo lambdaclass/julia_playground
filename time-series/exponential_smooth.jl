@@ -7,6 +7,9 @@ using InteractiveUtils
 # ╔═╡ a8985a28-301a-11eb-13fb-3540d83641bb
 using Plots
 
+# ╔═╡ ae00d74a-30cb-11eb-3997-0f1a1c55a2ff
+using Optim
+
 # ╔═╡ 97ceb2ca-2f5a-11eb-2a7b-cd339b881ea1
 md"## Exponential Smoothing"
 
@@ -28,8 +31,31 @@ y_ =[445.36,453.20,454.41,422.38,456.04,440.39,425.19,486.21,500.43,521.28,508.9
 # ╔═╡ 2cc65384-3009-11eb-26f9-9f7c099e6114
 SES(y_, 0.83)
 
+# ╔═╡ d3b45e90-30e6-11eb-27f4-bd7ac92ef892
+function SES_weight(α, l0, time_serie)
+	N = length(time_serie)
+	y_pred = 0
+	pred = []
+	
+	for i in 1:(N)
+		if i == 1
+			y_pred = l0
+		else
+			y_pred = time_serie[i - 1] * α + y_pred * (1 - α)
+		end
+	
+		push!(pred, y_pred)
+		
+	end
+	
+	return pred
+end
+
+# ╔═╡ 30dd4d7c-30e7-11eb-3480-d5721718f1b3
+SES_weight(0.83, 446.57, y_)
+
 # ╔═╡ 340dc8bc-3017-11eb-04ac-19fc0e45d6af
-function SES_loss(time_serie, α, l0)
+function SES_weight_loss(α, l0, time_serie=y_)
 	loss = 0
 	#time_serie_l0 = vcat([l0], time_serie)
 	N = length(time_serie)
@@ -51,10 +77,12 @@ end
 		
 
 # ╔═╡ afda21c6-30c5-11eb-141a-bbc93204323b
-
+function SES_loss_(params, time_serie=y_)
+	return SES_weight_loss(params[1], params[2], time_serie)
+end
 
 # ╔═╡ 1ade257e-3019-11eb-1629-cb9a519f86fb
-los= SES_loss([445.36,453.20,454.41,422.38,456.04,440.39,425.19,486.21,500.43,521.28,508.95,488.89,509.87,456.72,473.82,525.95,549.83,542.34], 0.833, 446.59)
+los= SES_weight_loss(0.833, 446.59)
 
 # ╔═╡ 98ef988a-3019-11eb-1461-f38c5714521f
 aplhas = collect(0:0.01:1)
@@ -63,7 +91,7 @@ aplhas = collect(0:0.01:1)
 begin
 	a = Array{Float64}(undef, length(aplhas))
 for j in 1:length(aplhas)
-	a[j] = SES_loss(y_, aplhas[j], 446.6)
+	a[j] = SES_weight_loss(aplhas[j], 446.6)
 end
 end
 
@@ -71,20 +99,92 @@ end
 # ╔═╡ a131db1a-301a-11eb-293b-e128292362f2
 plot(0:0.01:1, a)
 
-# ╔═╡ 118c8542-30b9-11eb-0e73-0f90ef1da61e
-begin
-	plot(y_)
-	plot!(pred, legend=false)
+# ╔═╡ 3aa01418-30cc-11eb-3ada-ddca54664fb8
+begin 
+	lower = [0., 400.]
+	upper = [1., 500.]
+	initial_x = [0.6, 450.]
 end
 
-# ╔═╡ 7f2faf2a-30b9-11eb-28fe-8bef7e092da7
-pred
+# ╔═╡ b4632228-30cb-11eb-0380-65d3a2da7975
+res = optimize(SES_loss_,lower, upper, initial_x);
+
+# ╔═╡ 4f10d0be-30e4-11eb-366c-9f9a574c70ce
+optim = Optim.minimizer(res)
+
+# ╔═╡ 4619edaa-30ea-11eb-3a4c-6721d7443aa0
+pred = SES_weight(0.83378, 446.573, y_)
+
+# ╔═╡ e4a13032-30ea-11eb-2f28-672a793137f5
+time = collect(1996:1:2013)
+
+# ╔═╡ 118c8542-30b9-11eb-0e73-0f90ef1da61e
+begin
+	plot(time,y_, label="Serie")
+	plot!(time,pred, legend=:topleft, label="Fitted")
+end
+
+# ╔═╡ 1cebcf7a-30ec-11eb-0697-f94fe4db2430
+forecast = SES(y_, 0.83378)
+
+# ╔═╡ df699004-30d7-11eb-18e8-33dc21caf77a
+md"### Holt’s linear trend method"
+
+# ╔═╡ 2230b29c-30f0-11eb-2e02-197ad35d3100
+function HLT(time_serie, α, β, l0, b0)
+	N = length(time_serie)
+	l_t = 0
+	b_t = 0
+	l_t_ = 0 #Variable to save l(t-1)
+	loss = 0
+	
+	for i in 1:(N)
+		if i == 1
+			l_t = l0
+			b_t = b0
+		else
+			l_t = time_serie[i - 1] * α + (l_t + b_t) * (1 - α) #b_t "is" b(t-1)
+			b_t = β * (l_t - l_t_) + (1 - β) * b_t
+		end
+		l_t_ = l_t
+		
+		y_pred = l_t + b_t
+		
+		loss += (time_serie[i] - y_pred)^2
+		
+	end
+	
+	return loss
+end
+
+# ╔═╡ ac0f3dfe-30f9-11eb-17b1-7729d039a6b9
+data = [17.55,21.86,23.89,26.93,26.89,28.83,30.08,30.95,30.19,31.58,32.58,33.48,39.02,41.39,41.60, 44.66,46.95,48.73,51.49,50.03,60.64,63.36,66.36,68.20,68.12,69.78,72.60]
+
+# ╔═╡ 06993716-30fa-11eb-0e0a-1f84abee8bf6
+function HLT_loss_(params, time_serie=data)
+	return HLT(time_serie, params[1], params[2], params[3], params[4])
+end
+
+# ╔═╡ 7674fda8-30fb-11eb-176b-e5999af211fe
+begin 
+	lower_ = [0., 0., 10., 1.]
+	upper_ = [1., 1.,30., 5]
+	initial_x_ = [0.5, 0.5, 15., 2.]
+end
+
+# ╔═╡ a71787f4-30fc-11eb-39db-e564e728c3db
+res1 = optimize(HLT_loss_, lower_, upper_, initial_x_);
+
+# ╔═╡ f9396bd8-30fc-11eb-2c96-f95f493a4270
+optim1 = Optim.minimizer(res1)
 
 # ╔═╡ Cell order:
 # ╟─97ceb2ca-2f5a-11eb-2a7b-cd339b881ea1
 # ╠═f03467ca-2f5a-11eb-1d53-f3d95c4267db
 # ╠═2cc65384-3009-11eb-26f9-9f7c099e6114
 # ╠═bc7a1146-3010-11eb-1b31-d940642ff8aa
+# ╠═d3b45e90-30e6-11eb-27f4-bd7ac92ef892
+# ╠═30dd4d7c-30e7-11eb-3480-d5721718f1b3
 # ╠═340dc8bc-3017-11eb-04ac-19fc0e45d6af
 # ╠═afda21c6-30c5-11eb-141a-bbc93204323b
 # ╠═1ade257e-3019-11eb-1629-cb9a519f86fb
@@ -92,5 +192,18 @@ pred
 # ╠═acd8fb36-3019-11eb-2a51-d34ed19b2646
 # ╠═a8985a28-301a-11eb-13fb-3540d83641bb
 # ╠═a131db1a-301a-11eb-293b-e128292362f2
+# ╠═ae00d74a-30cb-11eb-3997-0f1a1c55a2ff
+# ╠═3aa01418-30cc-11eb-3ada-ddca54664fb8
+# ╠═b4632228-30cb-11eb-0380-65d3a2da7975
+# ╠═4f10d0be-30e4-11eb-366c-9f9a574c70ce
+# ╠═4619edaa-30ea-11eb-3a4c-6721d7443aa0
+# ╠═e4a13032-30ea-11eb-2f28-672a793137f5
 # ╠═118c8542-30b9-11eb-0e73-0f90ef1da61e
-# ╠═7f2faf2a-30b9-11eb-28fe-8bef7e092da7
+# ╠═1cebcf7a-30ec-11eb-0697-f94fe4db2430
+# ╟─df699004-30d7-11eb-18e8-33dc21caf77a
+# ╠═2230b29c-30f0-11eb-2e02-197ad35d3100
+# ╠═ac0f3dfe-30f9-11eb-17b1-7729d039a6b9
+# ╠═06993716-30fa-11eb-0e0a-1f84abee8bf6
+# ╠═7674fda8-30fb-11eb-176b-e5999af211fe
+# ╠═a71787f4-30fc-11eb-39db-e564e728c3db
+# ╠═f9396bd8-30fc-11eb-2c96-f95f493a4270
