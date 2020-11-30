@@ -260,7 +260,7 @@ function HLT_forecast(time_serie, α, β, l0, b0, n_pred)
 end
 
 # ╔═╡ 93203060-3326-11eb-23b5-794e82e57f95
-data_forecasted = HLT_forecast(data, 0.8321, 0.0001, 15.57, 2.102, 5)
+data_forecasted = HLT_forecast(data, 0.8321, 0.0001, 15.57, 2.102, 15)
 
 # ╔═╡ 2dab6d5c-3329-11eb-02b7-178ab2f62847
 time_[end]
@@ -268,7 +268,104 @@ time_[end]
 # ╔═╡ d79228f2-3328-11eb-3026-b3cafeaae72f
 begin
 plot(time_, data_forecasted[1:length(data)], label="Data", legend=:topleft)
-plot!(time_[end]:(time_[end]+5), data_forecasted[length(data):end], label="Forecast")
+	plot!(time_[end]:(time_[end]+15), data_forecasted[length(data):end], label="Forecast")
+end
+
+# ╔═╡ 4371b178-332b-11eb-0d12-4f1abd67c5ab
+md"#### Holt’s linear damped trend method"
+
+# ╔═╡ 54065c6c-332b-11eb-1f80-e78e7eb071a5
+function Damped_HLT_loss(time_serie, α, β, l0, b0, ϕ)
+	N = length(time_serie)
+	l_t = 0
+	b_t = 0
+	l_t_ = 0 #Variable to save l(t-1)
+	loss = 0
+	
+	for i in 1:(N)
+		if i == 1
+			l_t = l0
+			b_t = b0
+		else
+			l_t = time_serie[i - 1] * α + (l_t + ϕ * b_t) * (1 - α) #b_t "is" b(t-1)
+			b_t = β * (l_t - l_t_) + (1 - β) * ϕ * b_t
+		end
+		l_t_ = l_t
+		
+		y_pred = l_t + b_t * ϕ
+		
+		loss += (time_serie[i] - y_pred)^2
+		
+	end
+	
+	return loss
+end
+
+# ╔═╡ b77f61a4-332c-11eb-2750-9bff0be97c8c
+function Damped_HLT_loss_(params, time_serie=data)
+	return Damped_HLT_loss(time_serie, params[1], params[2], params[3], params[4], params[5])
+end
+
+# ╔═╡ e1bd2db4-332c-11eb-01d1-d371958e9a79
+begin 
+	low = [0., 0., 10., 1., 0.]
+	up = [1., 1.,30., 5, 1.]
+	initial = [0.5, 0.5, 15., 2., 0.5]
+end
+
+# ╔═╡ 047c6608-332d-11eb-037a-f7aa6a374cc1
+res2 = optimize(Damped_HLT_loss_, low, up, initial);
+
+# ╔═╡ 31d2a63a-332d-11eb-1f3d-5f1fcfb0cde1
+optim__ = Optim.minimizer(res2)
+
+# ╔═╡ 64450a86-332d-11eb-370a-19667407db8d
+md"Values for phi near 1 converge to normal holt trend method"
+
+# ╔═╡ 85639c14-332d-11eb-1044-73415337f39b
+function Damped_HLT_forecast(time_serie, α, β, l0, b0, ϕ, n_pred)
+	N = length(time_serie)
+	l_t = 0
+	b_t = 0
+	l_t_ = 0 
+	pred = []
+	
+	for i in 1:(N)
+		if i == 1
+			l_t = l0
+			b_t = b0
+		else
+			l_t = time_serie[i - 1] * α + (l_t + b_t) * (1 - α) #b_t "is" b(t-1)
+			b_t = β * (l_t - l_t_) + (1 - β) * b_t 
+		end
+		l_t_ = l_t
+		
+		y_pred = l_t + b_t
+	end
+	
+	l_t = time_serie[end] * α + (l_t + b_t) * (1 - α)
+	b_t = β * (l_t - l_t_) + (1 - β) * b_t
+	
+	phi = 0
+	
+	for i in 1:n_pred
+		phi += ϕ^i
+		y_pred = l_t + b_t * phi
+		push!(pred, y_pred)
+	end
+				
+	return vcat(time_serie, pred)
+
+end
+
+# ╔═╡ b90ce29a-332e-11eb-3e5f-b3d483b879c5
+forecast_ = Damped_HLT_forecast(data, 0.8321, 0.0001, 15.57, 2.102,0.94, 15)
+
+# ╔═╡ e6fc9c7c-332e-11eb-1510-b979481e089a
+begin
+plot(time_, forecast_[1:length(data)], label="Data", legend=:topleft)
+plot!(time_[end]:(time_[end]+15), data_forecasted[length(data):end], label="Holt´s Forecast")
+	plot!(time_[end]:(time_[end]+15), forecast_[length(data):end], label="Damped Forecast")
 end
 
 # ╔═╡ Cell order:
@@ -311,3 +408,13 @@ end
 # ╠═93203060-3326-11eb-23b5-794e82e57f95
 # ╠═2dab6d5c-3329-11eb-02b7-178ab2f62847
 # ╠═d79228f2-3328-11eb-3026-b3cafeaae72f
+# ╟─4371b178-332b-11eb-0d12-4f1abd67c5ab
+# ╠═54065c6c-332b-11eb-1f80-e78e7eb071a5
+# ╠═b77f61a4-332c-11eb-2750-9bff0be97c8c
+# ╠═e1bd2db4-332c-11eb-01d1-d371958e9a79
+# ╠═047c6608-332d-11eb-037a-f7aa6a374cc1
+# ╠═31d2a63a-332d-11eb-1f3d-5f1fcfb0cde1
+# ╟─64450a86-332d-11eb-370a-19667407db8d
+# ╠═85639c14-332d-11eb-1044-73415337f39b
+# ╠═b90ce29a-332e-11eb-3e5f-b3d483b879c5
+# ╠═e6fc9c7c-332e-11eb-1510-b979481e089a
