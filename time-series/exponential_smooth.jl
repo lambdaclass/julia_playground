@@ -359,14 +359,135 @@ function Damped_HLT_forecast(time_serie, α, β, l0, b0, ϕ, n_pred)
 end
 
 # ╔═╡ b90ce29a-332e-11eb-3e5f-b3d483b879c5
-forecast_ = Damped_HLT_forecast(data, 0.8321, 0.0001, 15.57, 2.102,0.94, 15)
+forecast_ = Damped_HLT_forecast(data, 0.8321, 0.0001, 15.57, 2.102, 0.96 , 15)
 
 # ╔═╡ e6fc9c7c-332e-11eb-1510-b979481e089a
 begin
 plot(time_, forecast_[1:length(data)], label="Data", legend=:topleft)
 plot!(time_[end]:(time_[end]+15), data_forecasted[length(data):end], label="Holt´s Forecast")
-	plot!(time_[end]:(time_[end]+15), forecast_[length(data):end], label="Damped Forecast")
+plot!(time_[end]:(time_[end]+15), forecast_[length(data):end], label="Damped Forecast")
 end
+
+# ╔═╡ d5db9dd0-3342-11eb-0745-87b8d80b885a
+md"### Holt-Winters’ seasonal method
+
+##### Additive method"
+
+# ╔═╡ 0aa21d20-33f0-11eb-11b9-fb1ea9a9bcea
+data_ = [42.20566, 24.64917, 32.66734, 37.25735, 45.24246, 29.35048, 36.34421, 41.78208, 49.27660, 31.27540, 37.85063, 38.83704, 51.23690, 31.83855, 41.32342, 42.79900, 55.70836, 33.40714, 42.31664, 45.15712, 59.57608, 34.83733, 44.84168, 46.97125, 60.01903, 38.37118, 46.97586, 50.73380, 61.64687, 39.29957, 52.67121, 54.33232, 66.83436, 40.87119, 51.82854, 57.49191, 65.25147, 43.06121, 54.76076, 59.83447, 73.25703, 47.69662, 61.09777, 66.05576]
+
+# ╔═╡ 1c3c9a2e-33f0-11eb-361d-81717ef58687
+plot(data_, legend=false)
+
+# ╔═╡ 22fa37de-3343-11eb-39fe-c36faf16be1a
+function HW_Seasonal_loss(time_serie, α, β, γ, l0, b0, s0, m)
+	N = length(time_serie)
+	l_t = 0
+	b_t = 0
+	l_t_ = 0 #Variable to save l(t-1)
+	b_t_ = 0 #Variable to save b(t-1)
+	s_ = 0
+	s = s0
+	
+	loss = 0
+	
+	for i in 0:(N - 1)
+		if i == 0
+			l_t = l0
+			b_t = b0
+		else
+			l_t = (time_serie[i] - s_) * α + (l_t_ + b_t_) * (1 - α) 
+			b_t = β * (l_t - l_t_) + (1 - β) * b_t_
+		end
+		l_t_ = l_t
+		b_t_ = b_t
+		s_ = s[i%m + 1]
+		
+		y_pred = l_t + b_t + s[i%m + 1]
+		
+		s[i%m + 1] = γ * (time_serie[i + 1] - l_t_ - b_t_) + (1 - γ) * s[i%m + 1]
+		
+		loss += (time_serie[i + 1] - y_pred)^2
+		
+	end
+	
+	return loss
+end
+
+# ╔═╡ 99ced330-33f5-11eb-0f66-bb2df596d736
+Se = HW_Seasonal_loss(data_, 0.306, 0.0003, 0.426, 32.26, 0.70, [9.7, -9.31, -1.69, 1.31], 4)
+
+# ╔═╡ cf5e6740-33f5-11eb-254f-533e6d15c6e5
+rmse = sqrt(Se/44)
+
+# ╔═╡ efe28838-33f1-11eb-37bd-fb8b43f8a9f5
+function HW_Seasonal_loss_(params, time_serie=data_, m=4)
+	return HW_Seasonal_loss(time_serie, params[1], params[2], params[3], params[4], params[5], params[6], 4)
+end
+
+# ╔═╡ 53b6dd82-33f2-11eb-044e-79a9055fc266
+begin 
+	low_ = [0., 0., 0., 25., 0., [-10., -10., -10., -10.]]
+	up_ = [1., 1., 1., 40., 2, [10., 10., 10., 10.]]
+	initial_ = [0.5, 0.5, 0.5, 30., 1., [0., 0., 0., 0.]]
+end
+
+# ╔═╡ d5348b3e-33f2-11eb-253e-79347d718fc4
+res3 = optimize(HW_Seasonal_loss_, low_, up_, initial_);
+
+# ╔═╡ 48c8d640-3407-11eb-1107-39f8f4a2a3c8
+data_
+
+# ╔═╡ add7b856-3418-11eb-27d7-2d57cebb2390
+
+
+# ╔═╡ 763818e8-33ee-11eb-004c-e73e58a5c17c
+function HW_Seasonal(time_serie, α, β, γ, l0, b0, s0, m)
+	N = length(time_serie)
+	l_t = 0
+	b_t = 0
+	l_t_ = 0 #Variable to save l(t-1)
+	b_t_ = 0 #Variable to save b(t-1)
+	s_ = 0
+	s = s0
+	
+	pred = []
+	l_ = []
+
+	for i in 0:(N - 1)
+		if i == 0
+			l_t = l0
+			b_t = b0
+		else
+			l_t = (time_serie[i] - s_) * α + (l_t_ + b_t_) * (1 - α) 
+			b_t = β * (l_t - l_t_) + (1 - β) * b_t_
+		end
+		l_t_ = l_t
+		b_t_ = b_t
+		s_ = s[i%m + 1]
+		
+		y_pred = l_t + b_t + s[i%m + 1]
+		push!(pred, y_pred)
+		push!(l_, l_t)
+		
+		s[i%m + 1] = γ * (time_serie[i + 1] - l_t_ - b_t_) + (1 - γ) * s[i%m + 1]
+		
+	end
+	
+	return pred, l_
+end
+
+# ╔═╡ 36163518-33f0-11eb-0ac9-356554e76ca4
+season, l = HW_Seasonal(data_, 0.306, 0.0003, 0.426, 32.26, 0.70, [9.7, -9.31, -1.69, 1.31], 4)
+
+# ╔═╡ 751b946e-33f1-11eb-1f8e-c1d5ae4e6a4f
+begin
+plot(season, label = "fitted")
+plot!(data_, label = "data", legend=:topleft)
+end
+
+# ╔═╡ adf0ec12-340a-11eb-3465-19f9bbacf810
+length(season)
 
 # ╔═╡ Cell order:
 # ╟─97ceb2ca-2f5a-11eb-2a7b-cd339b881ea1
@@ -418,3 +539,18 @@ end
 # ╠═85639c14-332d-11eb-1044-73415337f39b
 # ╠═b90ce29a-332e-11eb-3e5f-b3d483b879c5
 # ╠═e6fc9c7c-332e-11eb-1510-b979481e089a
+# ╟─d5db9dd0-3342-11eb-0745-87b8d80b885a
+# ╠═0aa21d20-33f0-11eb-11b9-fb1ea9a9bcea
+# ╠═1c3c9a2e-33f0-11eb-361d-81717ef58687
+# ╠═22fa37de-3343-11eb-39fe-c36faf16be1a
+# ╠═99ced330-33f5-11eb-0f66-bb2df596d736
+# ╠═cf5e6740-33f5-11eb-254f-533e6d15c6e5
+# ╠═efe28838-33f1-11eb-37bd-fb8b43f8a9f5
+# ╠═53b6dd82-33f2-11eb-044e-79a9055fc266
+# ╠═d5348b3e-33f2-11eb-253e-79347d718fc4
+# ╠═48c8d640-3407-11eb-1107-39f8f4a2a3c8
+# ╠═add7b856-3418-11eb-27d7-2d57cebb2390
+# ╠═763818e8-33ee-11eb-004c-e73e58a5c17c
+# ╠═36163518-33f0-11eb-0ac9-356554e76ca4
+# ╠═751b946e-33f1-11eb-1f8e-c1d5ae4e6a4f
+# ╠═adf0ec12-340a-11eb-3465-19f9bbacf810
